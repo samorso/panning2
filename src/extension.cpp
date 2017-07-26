@@ -4,9 +4,13 @@
 #include <numeric>
 #include <math.h>
 
-// Enable C++11 via the Rcpp plugin
-// [[Rcpp::plugins("cpp11")]]
+// [[Rcpp::interfaces(r,cpp)]]
 
+//'Logistic regression
+//'
+//'@param X a p x n matrix of regressor
+//'@param y a n x 1 vector of response
+//'@export
 // [[Rcpp::export]]
 arma::vec log_reg(
   arma::mat X,
@@ -16,10 +20,16 @@ arma::vec log_reg(
   mlpack::regression::LogisticRegression<> lr(X,y);
   // Get the parameters
   arma::vec parameters = lr.Parameters();
-  
+
   return parameters;
 }
 
+//'Prediction of logistic regression
+//'
+//'@param X a p x n matrix of regressor
+//'@param y a n x 1 vector of response
+//'@param X_new a p x m matrix of new regressor
+//'@export
 // [[Rcpp::export]]
 arma::vec pred_log_reg(
     arma::mat X,
@@ -31,10 +41,17 @@ arma::vec pred_log_reg(
   // Get the predictions
   arma::vec prediction;
   lr.Predict(X_new,prediction);
-  
+
   return prediction;
 }
 
+//'Cross-validation for logistic regression
+//'
+//'@param X a p x n matrix of regressor
+//'@param y a n x 1 vector of response
+//'@param K number of splits
+//'@param M number of repetitions
+//'@export
 // [[Rcpp::export]]
 double cross_validation_logistic(
   arma::mat& X,
@@ -48,25 +65,25 @@ double cross_validation_logistic(
   unsigned int nn;
   unsigned int n_train;
   unsigned int n_test;
-  
+
   n = y.n_rows;
   nn = n;
   p = X.n_rows;
-  
+
   arma::uvec ivec(n);
   arma::uvec n_fold(K);
-  
+
   std::iota(ivec.begin(), ivec.end(), 0);
-  
+
   for(unsigned int i = 0; i<K; i++){
     n_fold[i] = std::ceil(nn/(K-i));
     nn -= n_fold[i];
   }
-  
+
   for(unsigned int m = 0; m < M; m++){
     // Shuffle the index
-    ivec = shuffle(ivec);
-    
+    ivec = arma::shuffle(ivec);
+
     // K-fold CV on logitstic classification
     for(unsigned int k = 0; k < K; k++){
       // Seperate training/test sets
@@ -81,10 +98,10 @@ double cross_validation_logistic(
       arma::vec y_train(n_train);
       arma::vec y_test(n_test);
       arma::vec prediction(n_test);
-      
+
       unsigned int ii = 0;
       unsigned int jj = 0;
-      
+
       for(unsigned int i = k+1; i < n+k+1; i++){
         if(i%K == 0){
           index_test[ii] = i-k-1;
@@ -94,26 +111,26 @@ double cross_validation_logistic(
           jj++;
         }
       }
-      
+
       i_train = ivec.elem(index_train);
       i_test = ivec.elem(index_test);
-      
+
       X_train = X.cols(i_train);
       X_test = X.cols(i_test);
       y_train = y.elem(i_train);
       y_test = y.elem(i_test);
-      
+
       // Regress
       mlpack::regression::LogisticRegression<> lr(X_train,y_train);
       // Get the predictions
       lr.Predict(X_test,prediction);
-      
+
       // Classification error
       y_test -= prediction;
       ii++;
       err += sum(arma::abs(y_test))/ii;
     }
   }
-  
+
   return err / K / M;
 }
