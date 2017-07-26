@@ -1,9 +1,21 @@
 Package: panning2
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Extension of panning
 Version: 0.1.0
-Author: Who wrote it
-Maintainer: Who to complain to <yourfault@somewhere.net>
-Description: More about what it does (maybe more than one line)
-License: What license is it under?
-LazyData: TRUE
+Author@R: person("Samuel", "Orso", email = "Samuel.Orso@unige.ch", role = c("aut","cre"))
+Description: Cross-validation for logistic regression in C++
+License: GPL-3
+LazyData: FALSE
+URL: https://github.com/samorso/panning2/
+BugReports: https://github.com/samorso/panning2/issues
+Depends: R(>= 3.1.0)
+Imports:
+  Rcpp,
+  RcppArmadillo,
+  RcppMLPACK
+LinkingTo:
+  Rcpp,
+  RcppArmadillo,
+  RcppMLPACK,
+  BH
+SystemRequirements: C++11
