@@ -1,79 +1,89 @@
-// [[Rcpp::depends(RcppMLPACK)]]
-#include <RcppMLPACK.h>
-#include <RcppArmadillo.h>
+// [[Rcpp::depends(RcppEigen,RcppNumerical)]]
+#include <RcppEigen.h>
+#include <RcppNumerical.h>
 #include <numeric>
 #include <math.h>
+#include <random>
+#include <algorithm>
+#include <vector>
 
-// [[Rcpp::interfaces(r,cpp)]]
 
-//'Logistic regression
-//'
-//'@param X a p x n matrix of regressor
-//'@param y a n x 1 vector of response
-//'@export
-// [[Rcpp::export]]
-arma::vec log_reg(
-  arma::mat X,
-  arma::vec y
+// --------------
+// Misc
+// --------------
+struct Sigmoid {
+  Sigmoid(){}
+  const double operator()(const double& x) const {return 0.1e1 / (0.1e1 + std::exp(-x));}
+};
+
+// --------------
+// Logistic regression
+// --------------
+class mle_logistic: public Numer::MFuncGrad
+{
+private:
+  const Eigen::ArrayXd y;
+  const Eigen::MatrixXd X;
+  const unsigned int n = y.size();
+  const unsigned int p = X.cols();
+
+public:
+  mle_logistic(const Eigen::ArrayXd& y_,const Eigen::MatrixXd& X_) : y(y_), X(X_) {}
+  double f_grad(Numer::Constvec& beta, Numer::Refvec grad);
+};
+
+double mle_logistic::f_grad(
+    Numer::Constvec& beta,
+    Numer::Refvec grad
 ){
-  // Regress
-  mlpack::regression::LogisticRegression<> lr(X,y);
-  // Get the parameters
-  arma::vec parameters = lr.Parameters();
+  // data storage
+  Eigen::ArrayXd sig(n);
+  Eigen::VectorXd v(n);
 
-  return parameters;
+  // pre-computation
+  v = X * beta;
+  sig = v.unaryExpr(Sigmoid());
+
+  // computation
+  // objective function
+  const double f = -(0.1e1 - sig).log().sum() / n - v.dot(y.matrix()) / n;
+
+  // gradient
+  grad = X.transpose() * (sig - y).matrix() / n;
+  return f;
 }
 
-//'Prediction of logistic regression
+// --------------
+// Cross-validation for logistic regression
+// --------------
+
+//'Cross-validation for logistic regression with l2-norm error
 //'
-//'@param X a p x n matrix of regressor
-//'@param y a n x 1 vector of response
-//'@param X_new a p x m matrix of new regressor
+//'@param X a n x p matrix of regressor
+//'@param y a n-vector of response
+//'@param seed an integer for setting the seed (reproducibility)
+//'@param K number of splits; 10 by default
+//'@param M number of repetitions; 10 by default
 //'@export
 // [[Rcpp::export]]
-arma::vec pred_log_reg(
-    arma::mat X,
-    arma::vec y,
-    arma::mat X_new
+double cross_validation_logistic_l2(
+    Eigen::MatrixXd& X,
+    Eigen::ArrayXd& y,
+    unsigned int seed,
+    unsigned int K = 10,
+    unsigned int M = 10
 ){
-  // Regress
-  mlpack::regression::LogisticRegression<> lr(X,y);
-  // Get the predictions
-  arma::vec prediction;
-  lr.Predict(X_new,prediction);
-
-  return prediction;
-}
-
-//'Cross-validation for logistic regression
-//'
-//'@param X a p x n matrix of regressor
-//'@param y a n x 1 vector of response
-//'@param K number of splits
-//'@param M number of repetitions
-//'@export
-// [[Rcpp::export]]
-double cross_validation_logistic(
-  arma::mat& X,
-  arma::vec& y,
-  unsigned int K,
-  unsigned int M
-){
+  // Storage
   double err(0.0);
-  unsigned int n;
-  unsigned int p;
-  unsigned int nn;
-  unsigned int n_train;
-  unsigned int n_test;
+  unsigned int n = X.rows();
+  unsigned int p = X.cols();
+  unsigned int nn = n;
+  unsigned int n_train, n_test;
+  std::vector<int> ivec(n);
+  std::iota(ivec.begin(),ivec.end(),0);
+  std::vector<int> n_fold(K);
 
-  n = y.n_rows;
-  nn = n;
-  p = X.n_rows;
-
-  arma::uvec ivec(n);
-  arma::uvec n_fold(K);
-
-  std::iota(ivec.begin(), ivec.end(), 0);
+  std::mt19937_64 engine(seed);  // Mersenne twister random number engine
 
   for(unsigned int i = 0; i<K; i++){
     n_fold[i] = std::ceil(nn/(K-i));
@@ -82,53 +92,46 @@ double cross_validation_logistic(
 
   for(unsigned int m = 0; m < M; m++){
     // Shuffle the index
-    ivec = arma::shuffle(ivec);
+    std::shuffle(ivec.begin(),ivec.end(),engine);
 
     // K-fold CV on logitstic classification
     for(unsigned int k = 0; k < K; k++){
       // Seperate training/test sets
       n_train = n-n_fold[k];
       n_test = n_fold[k];
-      arma::uvec i_train(n_train);
-      arma::uvec i_test(n_test);
-      arma::uvec index_train(n_train);
-      arma::uvec index_test(n_test);
-      arma::mat X_train(p,n_train);
-      arma::mat X_test(p,n_test);
-      arma::vec y_train(n_train);
-      arma::vec y_test(n_test);
-      arma::vec prediction(n_test);
+      Eigen::MatrixXd X_train(n_train,p),X_test(n_test,p);
+      Eigen::VectorXd y_train(n_train),y_test(n_test),pred(n_test);
 
-      unsigned int ii = 0;
-      unsigned int jj = 0;
+      unsigned int ii(0),jj(0),ind;
 
       for(unsigned int i = k+1; i < n+k+1; i++){
         if(i%K == 0){
-          index_test[ii] = i-k-1;
+          ind = ivec[i-k-1];
+          X_test.row(ii) = X.row(ind);
+          y_test(ii) = y(ind);
           ii++;
         }else{
-          index_train[jj] = i-k-1;
+          ind = ivec[i-k-1];
+          X_train.row(jj) = X.row(ind);
+          y_train(jj) = y(ind);
           jj++;
         }
       }
 
-      i_train = ivec.elem(index_train);
-      i_test = ivec.elem(index_test);
-
-      X_train = X.cols(i_train);
-      X_test = X.cols(i_test);
-      y_train = y.elem(i_train);
-      y_test = y.elem(i_test);
-
       // Regress
-      mlpack::regression::LogisticRegression<> lr(X_train,y_train);
+      double fopt;
+      Eigen::VectorXd beta(p);
+      beta.setZero();
+      mle_logistic f(y_train,X_train);
+      Numer::optim_lbfgs(f,beta,fopt);
+
       // Get the predictions
-      lr.Predict(X_test,prediction);
+      pred = (X_test * beta).unaryExpr(Sigmoid());
 
       // Classification error
-      y_test -= prediction;
+      y_test -= pred;
       ii++;
-      err += sum(arma::abs(y_test))/ii;
+      err += y_test.dot(y_test) / ii;
     }
   }
 
