@@ -13,3 +13,15 @@ cross_validation_logistic_l2 <- function(X, y, seed, K = 10L, M = 10L) {
     .Call('_panning2_cross_validation_logistic_l2', PACKAGE = 'panning2', X, y, seed, K, M)
 }
 
+#'Cross-validation for logistic regression with counting error
+#'
+#'@param X a n x p matrix of regressor
+#'@param y a n-vector of response
+#'@param seed an integer for setting the seed (reproducibility)
+#'@param K number of splits; 10 by default
+#'@param M number of repetitions; 10 by default
+#'@export
+cross_validation_logistic_count <- function(X, y, seed, K = 10L, M = 10L) {
+    .Call('_panning2_cross_validation_logistic_count', PACKAGE = 'panning2', X, y, seed, K, M)
+}
+

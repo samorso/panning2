@@ -21,9 +21,25 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cross_validation_logistic_count
+double cross_validation_logistic_count(Eigen::MatrixXd& X, Eigen::ArrayXd& y, unsigned int seed, unsigned int K, unsigned int M);
+RcppExport SEXP _panning2_cross_validation_logistic_count(SEXP XSEXP, SEXP ySEXP, SEXP seedSEXP, SEXP KSEXP, SEXP MSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Eigen::MatrixXd& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< Eigen::ArrayXd& >::type y(ySEXP);
+    Rcpp::traits::input_parameter< unsigned int >::type seed(seedSEXP);
+    Rcpp::traits::input_parameter< unsigned int >::type K(KSEXP);
+    Rcpp::traits::input_parameter< unsigned int >::type M(MSEXP);
+    rcpp_result_gen = Rcpp::wrap(cross_validation_logistic_count(X, y, seed, K, M));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_panning2_cross_validation_logistic_l2", (DL_FUNC) &_panning2_cross_validation_logistic_l2, 5},
+    {"_panning2_cross_validation_logistic_count", (DL_FUNC) &_panning2_cross_validation_logistic_count, 5},
     {NULL, NULL, 0}
 };
 
