@@ -2,6 +2,7 @@
 
 export(cross_validation_logistic_count)
 export(cross_validation_logistic_l2)
+export(logistic_mle)
 import(Rcpp)
 import(RcppEigen)
 import(RcppNumerical)

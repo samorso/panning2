@@ -58,6 +58,26 @@ double mle_logistic::f_grad(
   return f;
 }
 
+//' Logistic regression based on MLE
+//'
+//' @param X a n x p matrix of regressor
+//' @param y a n-vector of response
+//' @export
+// [[Rcpp::export]]
+Eigen::VectorXd logistic_mle(
+  Eigen::MatrixXd& X,
+  Eigen::ArrayXd& y
+){
+  // Regress
+  unsigned int p(X.cols());
+  double fopt;
+  Eigen::VectorXd beta(p);
+  beta.setZero();
+  mle_logistic f(y,X);
+  Numer::optim_lbfgs(f,beta,fopt);
+  return beta;
+}
+
 // --------------
 // Cross-validation for logistic regression
 // --------------
